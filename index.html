@@ -1,178 +1,400 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Miles College — Course Finder</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Miles College Course Finder</title>
+
+  <!-- Papa Parse for CSV parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
   <style>
     :root {
-      --bg: #ffffff;
-      --card: #f7f7f7;
-      --text: #222;
-      --muted: #555;
-      --accent: #5c7cfa;
-      --border: #ddd;
+      --bg: #0b0c10;
+      --panel: #12141a;
+      --text: #eaeef7;
+      --muted: #a8b0c2;
+      --border: rgba(255,255,255,.12);
+      --chip: rgba(255,255,255,.08);
+      --accent: #dbad00; /* Miles gold-ish */
     }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); margin: 24px; }
-    h1 { margin-bottom: 6px; }
-    p { color: var(--muted); }
-    label { display: block; font-weight: 600; margin-top: 14px; }
-    input, select {
-      width: 100%; padding: 12px; margin-top: 6px; border: 1px solid var(--border);
-      border-radius: 6px; font-size: 16px;
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
     }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .result {
-      margin-top: 20px; background: var(--card); border: 1px solid var(--border);
-      border-radius: 10px; padding: 18px;
+    header {
+      padding: 28px 16px 12px;
+      max-width: 1100px;
+      margin: 0 auto;
     }
-    .meta { color: var(--muted); font-size: 0.95rem; margin-top: 8px; }
-    .outcomes { margin-top: 12px; }
-    .hidden { display: none; }
-    .badge { display: inline-block; background: #eef; color: #244;
-      padding: 3px 8px; margin-right: 8px; border-radius: 999px; font-size: 0.85rem;
+    h1 { margin: 0 0 6px; font-size: 26px; }
+    p { margin: 0; color: var(--muted); }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 12px 16px 40px;
     }
-    .footer { margin-top: 28px; font-size: 0.9rem; color: var(--muted); }
+    .controls {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 1fr auto;
+      gap: 10px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      align-items: end;
+    }
+    .field label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin: 0 0 6px;
+    }
+    input, select, button {
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.03);
+      color: var(--text);
+      padding: 10px 12px;
+      outline: none;
+    }
+    button {
+      cursor: pointer;
+      font-weight: 600;
+      border-color: rgba(219,173,0,.35);
+    }
+    button:hover { border-color: rgba(219,173,0,.65); }
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 12px 2px 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 12px;
+      margin-top: 10px;
+    }
+    @media (max-width: 900px) {
+      .controls { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 14px 12px;
+    }
+    .topline {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .code { font-weight: 800; letter-spacing: .3px; }
+    .title { font-weight: 700; }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip {
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: var(--chip);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    details {
+      margin-top: 10px;
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+    }
+    summary {
+      cursor: pointer;
+      color: var(--accent);
+      font-weight: 700;
+      list-style: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    .block {
+      margin-top: 10px;
+      color: var(--text);
+      line-height: 1.35;
+    }
+    .block h3 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--muted);
+      margin: 0 0 6px;
+    }
+    .block p { margin: 0; color: var(--text); }
+    .footer-note {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .error {
+      border: 1px solid rgba(255, 78, 78, .4);
+      background: rgba(255, 78, 78, .08);
+      padding: 12px;
+      border-radius: 12px;
+      color: #ffd2d2;
+      margin-top: 12px;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
+
 <body>
-  <h1>Miles College — Course Finder</h1>
-  <p>Search by course code (e.g., <strong>AC 210</strong>) or title (e.g., <strong>Biology</strong>), or browse all courses below.</p>
+  <header>
+    <h1>Miles College Course Finder</h1>
+    <p>Search and filter official course descriptions & outcomes.</p>
+  </header>
 
-  <div class="row">
-    <div>
-      <label for="query">Search</label>
-      <input id="query" type="text" placeholder="Type course code or title…" />
-    </div>
-    <div>
-      <label for="picker">Browse all courses</label>
-      <select id="picker"><option value="">— Select a course —</option></select>
-    </div>
-  </div>
+  <div class="wrap">
+    <div class="controls">
+      <div class="field">
+        <label for="q">Search (code, title, description, outcomes)</label>
+        <input id="q" type="search" placeholder="Example: AC 211, Accounting, psychology, writing..." autocomplete="off">
+      </div>
 
-  <div id="result" class="result hidden">
-    <h2 id="title"></h2>
+      <div class="field">
+        <label for="dept">Department / Prefix</label>
+        <select id="dept">
+          <option value="">All</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="credits">Credits</label>
+        <select id="credits">
+          <option value="">All</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>&nbsp;</label>
+        <button id="clearBtn" type="button">Clear</button>
+      </div>
+    </div>
+
     <div class="meta">
-      <span class="badge"><strong>Code:</strong> <span id="code"></span></span>
-      <span class="badge"><strong>Credits:</strong> <span id="credits"></span></span>
-      <span class="badge"><strong>Prerequisites:</strong> <span id="prereq"></span></span>
-      <span class="badge"><strong>Co-requisites:</strong> <span id="coreq"></span></span>
+      <div id="status">Loading courses…</div>
+      <div id="count"></div>
     </div>
-    <p id="desc"></p>
-    <div class="outcomes">
-      <strong>Learning Outcomes:</strong>
-      <ul id="outcomes"></ul>
-    </div>
-  </div>
 
-  <div class="footer">
-    <em>Data source:</em> Miles College Academic Catalog (2025–2026) + curated CSV with outcomes.
+    <div id="error" class="error" style="display:none;"></div>
+    <div id="results" class="grid"></div>
+
+    <div class="footer-note">
+      Tip: Click “Details” on a course to view the description and learning outcomes.
+    </div>
   </div>
 
   <script>
-    // 1) CSV hosted in your repo (raw link)
-    const CSV_URL = 'https://raw.githubusercontent.com/jarralynne/miles-course-finder/main/Miles_College_Course_Descriptions_with_Outcomes.csv';
+    // IMPORTANT: filename must match exactly
+    const CSV_PATH = "Miles_College_Course_Descriptions_with_Outcomes_CLEANED.csv";
 
-    // 2) Minimal CSV parser (quoted cells supported)
-    function parseCSV(text) {
-      const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
-      const headers = splitCSVLine(lines[0]);
-      const rows = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cells = splitCSVLine(lines[i]);
-        const obj = {};
-        headers.forEach((h, idx) => obj[h] = cells[idx] ?? '');
-        rows.push(obj);
+    /** @type {Array<Object>} */
+    let courses = [];
+
+    const elQ = document.getElementById("q");
+    const elDept = document.getElementById("dept");
+    const elCredits = document.getElementById("credits");
+    const elResults = document.getElementById("results");
+    const elStatus = document.getElementById("status");
+    const elCount = document.getElementById("count");
+    const elError = document.getElementById("error");
+    const elClear = document.getElementById("clearBtn");
+
+    function showError(msg) {
+      elError.style.display = "block";
+      elError.textContent =
+        "Could not load the CSV.\n\n" +
+        "Most common fixes:\n" +
+        "1) Confirm the CSV is in the repo root (same folder as index.html)\n" +
+        "2) Confirm filename matches exactly:\n   " + CSV_PATH + "\n" +
+        "3) GitHub Pages is enabled (Settings → Pages → main / root)\n\n" +
+        "Details:\n" + msg;
+    }
+
+    function norm(s) {
+      return (s ?? "").toString().trim();
+    }
+
+    function deptPrefix(courseCode) {
+      // Example: "AC 211" => "AC"
+      const code = norm(courseCode);
+      const m = code.match(/^([A-Za-z]+)/);
+      return m ? m[1].toUpperCase() : "";
+    }
+
+    function uniqueSorted(arr) {
+      return [...new Set(arr.filter(Boolean))].sort((a,b) => a.localeCompare(b));
+    }
+
+    function buildFilters(rows) {
+      const depts = uniqueSorted(rows.map(r => deptPrefix(r["Course Code"])));
+      const credits = uniqueSorted(rows.map(r => norm(r["Credits"])));
+
+      // Fill dept dropdown
+      for (const d of depts) {
+        const opt = document.createElement("option");
+        opt.value = d;
+        opt.textContent = d;
+        elDept.appendChild(opt);
       }
-      return rows;
-    }
-    function splitCSVLine(line) {
-      const out = []; let cur = ''; let inQuotes = false;
-      for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (ch === '"') {
-          if (inQuotes && line[i+1] === '"') { cur += '"'; i++; }
-          else { inQuotes = !inQuotes; }
-        } else if (ch === ',' && !inQuotes) { out.push(cur); cur = ''; }
-        else { cur += ch; }
+
+      // Fill credits dropdown
+      for (const c of credits) {
+        const opt = document.createElement("option");
+        opt.value = c;
+        opt.textContent = c;
+        elCredits.appendChild(opt);
       }
-      out.push(cur);
-      return out.map(s => s.trim());
     }
 
-    // 3) UI helpers
-    const picker = document.getElementById('picker');
-    const queryInput = document.getElementById('query');
-    const resultCard = document.getElementById('result');
-
-    function render(course) {
-      if (!course) { resultCard.classList.add('hidden'); return; }
-      document.getElementById('title').textContent = course['Course Title'] || '';
-      document.getElementById('code').textContent = course['Course Code'] || '';
-      document.getElementById('credits').textContent = course['Credits'] || '';
-      document.getElementById('prereq').textContent = course['Prerequisites'] || '—';
-      document.getElementById('coreq').textContent = course['Co-requisites'] || '—';
-      document.getElementById('desc').textContent = course['Description'] || '';
-
-      const ul = document.getElementById('outcomes');
-      ul.innerHTML = '';
-      const outcomesRaw = (course['Learning Outcomes'] || '').split(';').map(x => x.trim()).filter(Boolean);
-      outcomesRaw.forEach(o => { const li = document.createElement('li'); li.textContent = o; ul.appendChild(li); });
-
-      resultCard.classList.remove('hidden');
+    function matchesQuery(row, q) {
+      if (!q) return true;
+      const hay = [
+        row["Course Code"],
+        row["Course Title"],
+        row["Prerequisites"],
+        row["Co-requisites"],
+        row["Description"],
+        row["Learning Outcomes"]
+      ].map(norm).join(" | ").toLowerCase();
+      return hay.includes(q.toLowerCase());
     }
 
-    function fillDropdown(courses) {
-      const sorted = [...courses].sort((a, b) => (a['Course Code'] || '').localeCompare(b['Course Code'] || ''));
-      sorted.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c['Course Code'];
-        opt.textContent = `${c['Course Code']} — ${c['Course Title']}`;
-        picker.appendChild(opt);
+    function applyFilters() {
+      const q = elQ.value.trim();
+      const dept = elDept.value;
+      const credits = elCredits.value;
+
+      const filtered = courses.filter(r => {
+        const okQ = matchesQuery(r, q);
+        const okDept = !dept || deptPrefix(r["Course Code"]) === dept;
+        const okCredits = !credits || norm(r["Credits"]) === credits;
+        return okQ && okDept && okCredits;
+      });
+
+      render(filtered);
+    }
+
+    function render(rows) {
+      elResults.innerHTML = "";
+      elStatus.textContent = "Ready";
+      elCount.textContent = `${rows.length.toLocaleString()} course(s)`;
+
+      if (rows.length === 0) {
+        elResults.innerHTML = `<div class="card">No matches. Try fewer filters or a broader search.</div>`;
+        return;
+      }
+
+      for (const r of rows) {
+        const code = norm(r["Course Code"]);
+        const title = norm(r["Course Title"]);
+        const creds = norm(r["Credits"]);
+        const prereq = norm(r["Prerequisites"]);
+        const coreq = norm(r["Co-requisites"]);
+        const desc = norm(r["Description"]);
+        const outcomes = norm(r["Learning Outcomes"]);
+
+        const card = document.createElement("div");
+        card.className = "card";
+
+        card.innerHTML = `
+          <div class="topline">
+            <div>
+              <div class="code">${escapeHtml(code)}</div>
+              <div class="title">${escapeHtml(title)}</div>
+            </div>
+            <div class="chips">
+              ${creds ? `<span class="chip">${escapeHtml(creds)} cr</span>` : ""}
+              ${deptPrefix(code) ? `<span class="chip">${escapeHtml(deptPrefix(code))}</span>` : ""}
+            </div>
+          </div>
+
+          <div class="chips">
+            ${prereq ? `<span class="chip">Prereq: ${escapeHtml(prereq)}</span>` : ""}
+            ${coreq ? `<span class="chip">Coreq: ${escapeHtml(coreq)}</span>` : ""}
+          </div>
+
+          <details>
+            <summary>Details</summary>
+            ${desc ? `
+              <div class="block">
+                <h3>Description</h3>
+                <p>${escapeHtml(desc)}</p>
+              </div>` : ""
+            }
+            ${outcomes ? `
+              <div class="block">
+                <h3>Learning Outcomes</h3>
+                <p>${escapeHtml(outcomes)}</p>
+              </div>` : ""
+            }
+          </details>
+        `;
+
+        elResults.appendChild(card);
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function loadCSV() {
+      elStatus.textContent = "Loading courses…";
+
+      Papa.parse(CSV_PATH, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: (res) => {
+          if (res.errors?.length) {
+            showError(JSON.stringify(res.errors, null, 2));
+            return;
+          }
+
+          // Keep only rows that look like real courses
+          courses = (res.data || []).filter(r => norm(r["Course Code"]) && norm(r["Course Title"]));
+          buildFilters(courses);
+          applyFilters();
+        },
+        error: (err) => showError(String(err))
       });
     }
 
-    function findCourse(courses, query) {
-      const q = query.toLowerCase();
-      return courses.find(c =>
-        (c['Course Code'] || '').toLowerCase() === q ||
-        (c['Course Title'] || '').toLowerCase().includes(q)
-      );
-    }
+    // Events
+    elQ.addEventListener("input", applyFilters);
+    elDept.addEventListener("change", applyFilters);
+    elCredits.addEventListener("change", applyFilters);
 
-    // 4) Load CSV and wire up events
-    let DATA = [];
-
-    fetch(CSV_URL)
-      .then(r => {
-        if (!r.ok) throw new Error('Failed to fetch CSV: ' + r.status);
-        return r.text();
-      })
-      .then(text => {
-        DATA = parseCSV(text);
-        fillDropdown(DATA);
-      })
-      .catch(err => {
-        console.error(err);
-        alert('Could not load course data. Check CSV_URL or repository permissions.');
-      });
-
-    queryInput.addEventListener('input', e => {
-      const q = e.target.value.trim();
-      if (!q) { render(null); picker.value = ''; return; }
-      const course = findCourse(DATA, q);
-      render(course || null);
-      if (course) picker.value = course['Course Code'];
+    elClear.addEventListener("click", () => {
+      elQ.value = "";
+      elDept.value = "";
+      elCredits.value = "";
+      applyFilters();
     });
 
-    picker.addEventListener('change', e => {
-      const code = e.target.value;
-      const course = DATA.find(c => c['Course Code'] === code);
-      render(course || null);
-      queryInput.value = code ? code : '';
-    });
+    // Go time
+    loadCSV();
   </script>
 </body>
 </html>
-``
+
